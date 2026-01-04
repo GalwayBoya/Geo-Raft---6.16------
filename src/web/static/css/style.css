@@ -1,0 +1,349 @@
+body {
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+    margin: 0;
+    background-color: #0d1117; /* Dark background */
+    color: #c9d1d9;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden; /* For background shapes */
+}
+
+/* Aurora Background Shapes */
+body::before, body::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background-repeat: no-repeat;
+}
+
+body::before {
+    background-image: radial-gradient(circle at 10% 20%, rgba(13, 110, 253, 0.2), transparent 40%),
+                      radial-gradient(circle at 90% 80%, rgba(214, 40, 40, 0.2), transparent 40%);
+    animation: moveShapes 20s infinite alternate;
+}
+
+body::after {
+    background-image: radial-gradient(circle at 50% 50%, rgba(32, 201, 151, 0.2), transparent 40%);
+    animation: moveShapes 25s infinite alternate-reverse;
+}
+
+.el-header {
+    background: rgba(22, 27, 34, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #30363d;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    position: relative;
+    z-index: 10;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-title h1 {
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.node-count {
+    font-size: 16px; /*字体大小*/
+    font-weight: 600; /*字体粗细*/
+    color: #8b949e;
+    margin-left: 8px; /*左边的距离*/
+}
+
+.connection-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: background-color 0.5s ease;
+}
+
+.connected { /*连接状态：绿色*/
+    background-color: #2dc574;
+}
+
+.disconnected { /*未连接状态：红色*/
+    background-color: #f5365c;
+}
+
+.lucide-icon { /*连接状态：图标*/
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.el-button .lucide-icon { 
+    margin-right: 6px;
+}
+
+.el-main {
+    padding: 24px;
+}
+
+.main-content { /*主内容：节点信息、事件日志*/
+    display: flex;
+    gap: 24px;
+    height: calc(100vh - 61px); /* Full height minus header */
+}
+
+.node-grid-container {
+    flex: 3;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.node-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.node-card-wrapper {
+    flex: 1 1 calc(25% - 20px); /* 4 columns on large screens */
+    min-width: 280px;
+}
+
+.box-card {
+    transition: all 0.3s ease-in-out;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    background-color: rgba(22, 27, 34, 0.8);
+    backdrop-filter: blur(5px);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.box-card:hover { /*节点信息：hover效果*/
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+    border-color: #8b949e;
+}
+
+.el-card__header { /*节点信息：header*/
+    padding: 12px 20px !important;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef !important;
+}
+
+.card-header strong { /*节点信息：Node ID*/
+    font-weight: 600;
+    font-size: 18px;
+    color: #0d1117;
+}
+
+.isolated-icon {
+    width: 18px;
+    height: 18px;
+    color: #f5365c;
+    animation: pulse-red 2s infinite;
+}
+
+.card-content {
+    padding: 16px 20px;
+}
+
+.info-row { /*节点信息：Term、Role、Commit Index*/
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #f0f6fc;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-row .info-icon { /*节点信息：图标*/
+    width: 16px;
+    height: 16px;
+    margin-right: 12px;
+    color: #E6A23C;
+}
+
+.info-row strong { /*节点信息：Term、Role、Commit Index的值*/
+    font-weight: 500;
+    color: #f0f6fc;
+    margin-right: 8px;
+}
+
+.latency-info {
+    margin-top: 16px;
+}
+
+.latency-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.latency-row .el-progress__text {
+    font-size: 12px !important;
+}
+
+.role-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 5px;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 0 10px 2px var(--role-color, transparent);
+}
+
+.leader .role-indicator { --role-color: #2dc574; animation: pulse-green 2s infinite; }
+.candidate .role-indicator { --role-color: #ffc107; }
+.follower .role-indicator { --role-color: #6c757d; }
+
+.leader {
+    background-color: #67C23A;
+    color: white;
+}
+
+.candidate {
+    background-color: #E6A23C;
+    color: white;
+}
+
+.follower {
+    background-color: #909399;
+    color: white;
+}
+
+.flash-leader { animation: flash-green 0.8s ease-out; }
+.flash-candidate { animation: flash-yellow 0.8s ease-out; }
+
+.box-card.isolated {
+    filter: grayscale(80%) opacity(60%);
+    border-style: dashed;
+    border-color: #f5365c;
+    transform: none; /* Override hover effect */
+}
+
+.box-card.isolated:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.box-card.isolated .role-indicator {
+    animation: none;
+    background-color: #f5365c;
+    box-shadow: 0 0 10px 2px #f5365c;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both
+}
+
+/* Event Log Styles */
+.event-log-container {
+    flex: 2;
+    background-color: rgba(22, 27, 34, 0.8);
+    backdrop-filter: blur(5px);
+    border-left: 1px solid #30363d;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.event-log-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    display: flex;
+    align-items: center;
+    color: #f0f6fc;
+}
+
+.event-log {
+    overflow-y: auto;
+}
+
+.event-item {
+    display: flex;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    background: rgba(13, 17, 23, 0.5);
+}
+
+.event-item.event-election { border-left-color: #409eff; }
+.event-item.event-commit { border-left-color: #67c23a; }
+.event-item.event-fault { border-left-color: #f56c6c; }
+
+.event-time {
+    font-weight: 500;
+    color: #8b949e;
+}
+
+.event-message {
+    color: #c9d1d9;
+}
+
+/* Animation for new events */
+.event-list-enter-active, .event-list-leave-active {
+    transition: all 0.5s cubic-bezier(0.5, 0, 0.5, 1);
+}
+.event-list-enter-from {
+    opacity: 0;
+    transform: translateX(30px);
+}
+.event-list-leave-to {
+    opacity: 0;
+    transform: translateX(-30px);
+}
+
+/* Keyframe Animations */
+@keyframes moveShapes {
+    from { transform: translate(0, 0); }
+    to { transform: translate(5vw, 10vh); }
+}
+
+@keyframes pulse-green {
+    0% { background-color: #2dc574; box-shadow: 0 0 8px 2px #2dc574; }
+    50% { background-color: #3fe08f; box-shadow: 0 0 16px 4px #3fe08f; }
+    100% { background-color: #2dc574; box-shadow: 0 0 8px 2px #2dc574; }
+}
+
+@keyframes pulse-red {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0.7; }
+}
+
+@keyframes flash-green {
+    0% { box-shadow: 0 0 0 0 rgba(45, 197, 116, 0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(45, 197, 116, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 197, 116, 0); }
+}
+
+@keyframes flash-yellow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+} 

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raft Cluster Status</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="app">
+        <el-container>
+            <el-header>
+                <div class="header-title">
+                    <div class="connection-status" :class="connectionStatus"></div>
+                    <h1>Raft Cluster Status <span class="node-count">({{ nodes.length }} Nodes)</span></h1>
+                </div>
+                <div>
+                    <el-button type="warning" @click="toggleIsolation" :disabled="isIsolating" round>
+                        <i data-lucide="shield-alert" class="lucide-icon"></i>
+                        <span v-if="isIsolating">Working...</span>
+                        <span v-else-if="isolatedNodeId !== -1">Reconnect Node {{ isolatedNodeId }}</span>
+                        <span v-else>Isolate Random Node</span>
+                    </el-button>
+                    <el-button type="primary" @click="sendCommand" :disabled="isSendingCommand" round>
+                        <i data-lucide="send" class="lucide-icon"></i>
+                        <span v-if="isSendingCommand">Sending...</span>
+                        <span v-else>Send Command</span>
+                    </el-button>
+                    <el-button type="danger" @click="injectFault" :disabled="isInjectingFault" round>
+                        <i data-lucide="zap-off" class="lucide-icon"></i>
+                        <span v-if="isInjectingFault">Injecting...</span>
+                        <span v-else>Inject Fault</span>
+                    </el-button>
+                </div>
+            </el-header>
+            <el-main class="main-content">
+                <div class="node-grid-container">
+                    <div class="node-grid">
+                        <div v-for="(node, index) in nodes" :key="node.id" class="node-card-wrapper">
+                            <el-card 
+                                :ref="el => { if (el) nodeRefs[index] = el.$el }"
+                                class="box-card" 
+                                :class="[getRoleClass(node.role), animationClasses[node.id]]">
+                                <div class="role-indicator"></div>
+                                <template #header>
+                                    <div class="card-header">
+                                        <strong>Node {{ node.id }}</strong>
+                                        <i v-if="node.isIsolated" data-lucide="zap-off" class="isolated-icon"></i>
+                                    </div>
+                                </template>
+                                <div class="card-content">
+                                    <div class="info-row">
+                                        <i data-lucide="crown" class="info-icon"></i>
+                                        <span><strong>Term:</strong> {{ node.term }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <i data-lucide="user-check" class="info-icon"></i>
+                                        <span><strong>Role:</strong> {{ node.role }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <i data-lucide="check-circle-2" class="info-icon"></i>
+                                        <span><strong>Commit Index:</strong> {{ node.commitIndex }}</span>
+                                    </div>
+                                    <div v-if="node.latencies" class="latency-info">
+                                        <el-divider>Peer Latency (ms)</el-divider>
+                                        <div v-for="(latency, peerId) in node.latencies" :key="peerId" class="latency-row">
+                                            <span>Node {{ peerId }}:</span>
+                                            <el-progress :percentage="normalizeLatency(latency)" :stroke-width="10" :color="getLatencyColor(latency)" :format="() => formatLatency(latency)" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-card>
+                        </div>
+                    </div>
+                </div>
+                <div class="event-log-container">
+                    <h2 class="event-log-title">
+                        <i data-lucide="activity" class="lucide-icon"></i>
+                        Cluster Event Log
+                    </h2>
+                    <div class="event-log">
+                        <transition-group name="event-list" tag="div">
+                            <div v-for="event in events" :key="event.timestamp" class="event-item" :class="'event-' + event.type">
+                                <span class="event-time">{{ formatTime(event.timestamp) }}</span>
+                                <span class="event-message">{{ event.message }}</span>
+                            </div>
+                        </transition-group>
+                    </div>
+                </div>
+            </el-main>
+        </el-container>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html> 
