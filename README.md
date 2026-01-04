@@ -1,284 +1,128 @@
-# Geo-Raft：多机部署的Raft共识算法实现
+# Geo-Raft：支持地理分布与可视化监控的Raft共识算法实现
 
-Geo-Raft是一个基于Golang的Raft共识算法实现，支持在多台机器上部署分布式系统。本项目在原有的基于labrpc的单机模拟基础上进行了扩展，实现了真实网络环境下的多机部署。
+Geo-Raft是一个基于Golang的高级Raft共识算法实现，专为地理分布式的多数据中心环境设计。本项目不仅实现了核心的Raft算法，还引入了基于信用值的选举机制、RSA命令签名验证，并提供了一个功能强大的Web可视化监控界面，支持实时状态查看和故障注入。
+
+## 核心特性
+
+### 1. 地理分布式优化 (Geo-Distributed)
+- **基于信用的选举机制 (Credit-Based Election)**：
+  - 节点根据参与度、投票一致性和网络延迟维护一个"信用值"。
+  - 信用值高的节点拥有更短的选举超时时间（分为FirstTier, SecondTier, ThirdTier三档），从而更有可能成为Leader。
+  - 优化了跨地域部署时的Leader选举效率，倾向于选择网络质量好、稳定性高的节点。
+
+### 2. 安全性增强
+- **命令签名验证 (Command Signing)**：
+  - 客户端命令使用RSA私钥签名。
+  - Raft节点在处理命令前使用公钥验证签名，防止恶意命令注入。
+
+### 3. 可视化监控与控制 (Web Interface)
+- **实时状态监控**：通过WebSocket实时推送集群状态，包括Term、Role、CommitIndex、网络延迟等。
+- **故障注入 (Fault Injection)**：
+  - **强制Leader下线**：通过Web界面强制当前Leader退位。
+  - **网络隔离**：模拟网络分区，隔离特定节点。
+- **交互式操作**：直接在Web界面发送测试命令。
+
+### 4. 灵活的部署模式
+- **单机模拟模式**：在单机上模拟多节点集群，配合Web界面进行开发和调试。
+- **多机部署模式**：支持在真实网络环境下的多台机器上部署。
 
 ## 项目结构
 
 ```
 Geo-Raft/
-├── src/                      # 源代码目录
-│   ├── labgob/               # 序列化工具
-│   ├── labrpc/               # 单机模拟RPC
-│   ├── monitor/              # 集群监控
-│   ├── network/              # 多机部署网络层
-│   ├── raft/                 # Raft算法实现
-│   │   ├── raft.go           # 核心数据结构和接口
-│   │   ├── raft_election.go  # 选举相关逻辑
-│   │   ├── raft_log.go       # 日志操作相关逻辑
-│   │   ├── raft_persist.go   # 持久化相关逻辑
-│   │   └── raft_replication.go # 日志复制相关逻辑
-│   └── main.go               # 主程序入口
-├── .gitignore                # Git忽略文件
+├── src/
+│   ├── main.go               # 主程序入口
+│   ├── go.mod                # Go模块定义
+│   ├── raft/                 # Raft核心实现
+│   │   ├── raft.go           # 核心逻辑
+│   │   ├── credit_ticker.go  # 信用值更新机制
+│   │   ├── signature.go      # RSA签名验证
+│   │   ├── raft_election.go  # 选举逻辑
+│   │   └── ...
+│   ├── web/                  # Web服务器与前端
+│   │   ├── server/           # Gin Web服务器
+│   │   ├── templates/        # HTML模板
+│   │   └── static/           # CSS/JS静态资源
+│   ├── tools/                # Python分析与绘图工具
+│   │   ├── plot_election_latency.py
+│   │   └── ...
+│   ├── network/              # 多机网络通信层
+│   └── labrpc/               # 单机模拟RPC层
 ├── Makefile                  # 构建工具
 └── README.md                 # 项目说明文档
 ```
 
-## 安装与编译
+## 快速开始
 
 ### 前提条件
+- Go 1.13+
+- Python 3.x (用于运行分析脚本)
 
-- Go 1.13或更高版本
-- Git
+### 1. 单机模拟模式 (推荐用于开发与演示)
 
-### 编译
+此模式会在本地启动8个Raft节点，并开启Web服务器。
 
+```bash
+cd src
+go run main.go -single
+```
+
+启动后，访问浏览器：`http://localhost:8080`
+
+**Web界面功能：**
+- 查看所有节点的状态（Leader/Follower/Candidate）。
+- 点击 "Inject Fault" 强制Leader下线。
+- 点击 "Toggle Isolation" 随机隔离一个Follower节点。
+- 点击 "Send Command" 发送带有签名的 "hello world" 命令。
+
+### 2. 多机部署模式（真实网络环境）
+
+此模式使用 TCP/IP 网络通信，既支持跨机器部署，也支持在单机上通过不同端口模拟多节点集群。
+
+**编译：**
 ```bash
 cd src
 go build -o raft-node main.go
 ```
 
-## 使用方法
+**运行示例：单机多端口模拟 (3节点集群)**
 
-Geo-Raft支持两种运行模式：单机模拟和多机部署。
+在同一台机器上打开 3 个终端窗口，分别运行以下命令：
 
-### 单机模拟模式
-
-此模式下，所有Raft节点都在本地运行，使用内存通信模拟网络：
-
+**终端 1 (节点 0):**
 ```bash
-./raft-node -single
+./raft-node -single=false -id=0 -addrs="localhost:8000,localhost:8001,localhost:8002" -listen="localhost:8000"
 ```
 
-### 多机部署模式
-
-此模式下，可以在多台机器上部署Raft节点，使用TCP/IP网络通信：
-
-#### 单机多端口测试（模拟多机）
-
-在同一台机器上使用不同端口模拟多节点：
-
+**终端 2 (节点 1):**
 ```bash
-# 在一个终端启动节点0
-./raft-node -addrs="localhost:8000,localhost:8001,localhost:8002" -id=0 -listen="localhost:8000"
-
-# 在另一个终端启动节点1
-./raft-node -addrs="localhost:8000,localhost:8001,localhost:8002" -id=1 -listen="localhost:8001"
-
-# 在第三个终端启动节点2
-./raft-node -addrs="localhost:8000,localhost:8001,localhost:8002" -id=2 -listen="localhost:8002"
+./raft-node -single=false -id=1 -addrs="localhost:8000,localhost:8001,localhost:8002" -listen="localhost:8001"
 ```
 
-#### 真实多机部署
-
-假设有三台机器，IP地址分别为192.168.1.10、192.168.1.11和192.168.1.12：
-
+**终端 3 (节点 2):**
 ```bash
-# 在机器1 (192.168.1.10) 上运行:
-./raft-node -addrs="192.168.1.10:8000,192.168.1.11:8000,192.168.1.12:8000" -id=0 -listen="0.0.0.0:8000"
-
-# 在机器2 (192.168.1.11) 上运行:
-./raft-node -addrs="192.168.1.10:8000,192.168.1.11:8000,192.168.1.12:8000" -id=1 -listen="0.0.0.0:8000"
-
-# 在机器3 (192.168.1.12) 上运行:
-./raft-node -addrs="192.168.1.10:8000,192.168.1.11:8000,192.168.1.12:8000" -id=2 -listen="0.0.0.0:8000"
+./raft-node -single=false -id=2 -addrs="localhost:8000,localhost:8001,localhost:8002" -listen="localhost:8002"
 ```
 
-注意：使用0.0.0.0作为监听地址可以接受来自任何网络接口的连接。
+**参数说明：**
+- `-single=false`: 关闭单机模拟模式，启用真实网络通信。
+- `-id`: 当前节点ID (0, 1, 2...)，必须与 `-addrs` 列表中的顺序对应。
+- `-addrs`: 集群所有节点的地址列表，逗号分隔。所有节点必须使用相同的列表。
+- `-listen`: 本地监听地址。
 
-### 命令行参数说明
+## 性能测试与分析
 
-- `-addrs`: 以逗号分隔的所有节点地址列表 (默认: "localhost:8000,localhost:8001,localhost:8002")
-- `-listen`: 本节点监听地址 (默认: 使用addrs中对应id的地址)
-- `-id`: 当前节点ID (默认: 0)
-- `-single`: 是否使用单机模拟模式 (默认: false)
+`src/tools/` 目录下提供了Python脚本，用于分析实验数据并生成图表。实验数据通常存储在 `src/raft/data/` 目录下。
 
-## 核心功能
+- `plot_election_latency.py`: 绘制选举延迟图表。
+- `plot_consensus_latency.py`: 绘制共识延迟图表。
+- `dslogs.py`: 日志分析工具。
 
-Geo-Raft实现了完整的Raft共识算法，包括：
-
-1. **领导人选举**：当现有领导人失效时，自动选举新的领导人
-2. **日志复制**：领导人接收客户端命令并将其复制到集群中
-3. **安全性**：保证一旦日志被提交，它将在所有节点上持久化
-4. **网络分区容错**：能够处理网络分区和节点故障
-
-## 实现细节
-
-### 从单机模拟到多机部署的改造
-
-本项目在原有的基于labrpc的单机模拟基础上进行了扩展：
-
-1. 创建了新的`network`包作为`labrpc`的替代品，实现了多机通信
-2. 定义了通用的`ClientEnd`接口，使Raft代码可以同时支持单机模拟和多机部署
-3. 修改了`Raft`结构体和`Make`函数，使其能够处理不同类型的通信端点
-4. 使用Go标准库的`net/rpc`包实现了真实的网络通信
-
-### 注意事项
-
-- 确保所有节点能够互相访问（防火墙设置）
-- 使用正确的IP地址和端口
-- 所有节点使用相同的peer列表
-- 每个节点的`-id`参数要唯一且小于peer数量
-
-## 调试与故障排除
-
-### 常见问题
-
-1. **RPC连接失败**
-   - 检查防火墙设置
-   - 确认所有节点使用的端口已开放
-   - 确认监听地址正确（通常在公共网络中需使用0.0.0.0）
-
-2. **节点无法发现彼此**
-   - 确保所有节点使用相同的地址列表
-   - 检查网络连接
-
-3. **选举超时**
-   - 可能是网络延迟过高，尝试调整超时参数
-   - 检查是否有防火墙或网络设备阻止了通信
-
-## 扩展与改进
-
-以下是可能的扩展方向：
-
-1. 实现成员变更功能，支持动态添加/移除节点
-2. 添加快照功能，优化日志管理
-3. 实现客户端库，方便应用集成
-4. 添加安全认证和加密通信
+**运行绘图脚本：**
+```bash
+cd src/tools
+python plot_election_latency.py
+```
 
 ## 协议
-
-本项目采用MIT许可证。详见LICENSE文件。
-
-# Raft 实验测试框架
-
-本测试框架用于验证改进的Raft共识算法的性能和安全性，包括信用机制和抗拜占庭方案。
-
-## 功能
-
-1. **选主延迟测试**：测量不同节点数量下Raft选举新leader的延迟时间
-2. **信用机制测试**：验证信用值对选主速度和结果的影响
-3. **抗拜占庭能力测试**：验证系统对恶意leader篡改日志的检测能力
-4. **自动绘图**：将测试结果可视化，生成多种类型的图表
-
-## 目录结构
-
-```
-.
-├── src/
-│   └── raft/
-│       ├── election_latency_test.go  # 测试文件
-│       └── ...                       # 其他Raft实现文件
-├── scripts/
-│   ├── run_experiments.sh            # 测试运行脚本
-│   └── plot_election_latency.py      # 绘图脚本
-├── logs/                             # 测试日志
-└── plots/                            # 生成的图表
-```
-
-## 运行方法
-
-### 一键运行所有测试
-
-1. 进入scripts目录
-```bash
-cd scripts
-```
-
-2. 运行实验脚本
-```bash
-bash run_experiments.sh
-```
-
-3. 选择选项5，运行所有测试并绘图
-```
-==== Raft实验 ====
-1. 测试选主延迟
-2. 测试信用机制
-3. 测试拜占庭容错
-4. 绘制图表
-5. 运行所有测试并绘图
-6. 退出
-请选择 [1-6]: 5
-```
-
-### 单独运行测试
-
-你也可以选择单独运行各个测试：
-
-#### 测试选主延迟
-
-```bash
-cd scripts
-bash run_experiments.sh
-# 选择选项1
-```
-
-#### 测试信用机制
-
-```bash
-cd scripts
-bash run_experiments.sh
-# 选择选项2
-```
-
-#### 测试抗拜占庭能力
-
-```bash
-cd scripts
-bash run_experiments.sh
-# 选择选项3
-```
-
-#### 单独绘制图表
-
-如果你已经有了测试结果CSV文件，可以只运行绘图脚本：
-
-```bash
-cd scripts
-bash run_experiments.sh
-# 选择选项4
-```
-
-## 测试参数
-
-### 选主延迟测试
-
-- 测试的节点数量：3, 5, 7, 9
-- 每个节点数量测试5次
-- 超时时间：5秒
-
-### 信用机制测试
-
-- 节点数量：5
-- 信用配置：
-  - uniform_credit：所有节点信用值相同 (0.6)
-  - varied_credit：节点0高信用 (0.9)，其他节点低信用 (0.3)
-- 每个配置测试3次
-
-### 抗拜占庭能力测试
-
-- 节点数量：5
-- 测试方法：模拟leader发送带有伪造签名的命令
-
-## 输出结果
-
-测试运行完成后，会生成以下文件：
-
-- `election_latency_results.csv`：选主延迟测试结果
-- `credit_based_election_results.csv`：信用机制测试结果
-- `plots/`目录中的多种图表：
-  - 折线图：显示平均选主延迟随节点数量的变化趋势
-  - 箱线图：显示每种配置下选主延迟的分布
-  - 小提琴图：更详细地展示延迟分布
-
-## 需求
-
-- Go 环境
-- Python 3 环境
-- Python包：pandas, matplotlib, numpy, seaborn
-
-## 注意事项
-
-- 测试在单机上模拟分布式环境，使用内存网络（labrpc）进行通信
-- 为保证测试结果可靠，我们在每次测试间添加了冷却时间
-- 绘图脚本会自动保存图表，方便分析和报告使用
+MIT License
