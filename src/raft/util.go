@@ -1,5 +1,9 @@
 package raft
 
+//用于设置日志输出格式和级别的工具函数，以及一个统一的日志函数 LOG()，方便在 Raft 实现中输出调试信息。
+//级别0可以显示所有日志，级别3只显示错误日志。
+//在cmd中设置和查看：set VERBOSE=0、echo %VERBOSE%
+//在powershell中设置和查看：$env:VERBOSE=0、echo $env:VERBOSE
 import (
 	"fmt"
 	"log"

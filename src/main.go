@@ -30,7 +30,7 @@ func init() {
 }
 
 var (
-	peerAddrs  = flag.String("addrs", "localhost:8000,localhost:8001,localhost:8002,localhost:8003,localhost:8004", "所有节点的地址，以逗号分隔")
+	peerAddrs  = flag.String("addrs", "localhost:8000,localhost:8001,localhost:8002", "所有节点的地址，以逗号分隔")
 	listenAddr = flag.String("listen", "", "本节点监听地址(如为空则使用addrs中对应id的地址)")
 	nodeId     = flag.Int("id", 0, "当前节点ID")
 	single     = flag.Bool("single", true, "是否单机模拟运行")
@@ -54,10 +54,10 @@ func main() {
 }
 
 // 多机部署模式
-func multiNodeDeployment(addresses []string, nodeId int) {
+func multiNodeDeployment(addresses []string, nodeId int) { //参数为节点地址列表和节点ID
 	// 确定监听地址
 	listenAddress := *listenAddr
-	if listenAddress == "" {
+	if listenAddress == "" { //如果用户没有指定监听地址，则默认使用addrs中对应id的地址
 		listenAddress = addresses[nodeId]
 	}
 
@@ -106,6 +106,18 @@ func multiNodeDeployment(addresses []string, nodeId int) {
 		}
 	}()
 
+	// // 加入测试代码：定期让当前节点尝试提交一条日志
+	// go func() {
+	// 	for {
+	// 		time.Sleep(3 * time.Second)
+	// 		// 只有 Leader 才能成功 Start，Follower 会返回 false
+	// 		index, term, isLeader := rf.Start(fmt.Sprintf("test-data-from-node-%d", nodeId))
+	// 		if isLeader {
+	// 			fmt.Printf("[节点 %d] 作为 Leader 成功发起提案 = %d, 任期 = %d\n", nodeId, index, term)
+	// 		}
+	// 	}
+	// }()
+
 	// 等待中断信号
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -122,8 +134,8 @@ func singleNodeSimulation() {
 	// 创建一个模拟网络
 	net := labrpc.MakeNetwork()
 
-	const numServers = 8
-	// 每个节点都有一组 ClientEnd，大小也是 4，代表与其他节点通信的"端"
+	const numServers = 11
+	// 每个节点都有一组 ClientEnd，代表与其他节点通信的"端"
 	ends := make([][]*labrpc.ClientEnd, numServers)
 	for i := 0; i < numServers; i++ {
 		ends[i] = make([]*labrpc.ClientEnd, numServers)
@@ -154,7 +166,7 @@ func singleNodeSimulation() {
 		applyChs[i] = make(chan raft.ApplyMsg)
 	}
 
-	// 创建并启动 24 个 Raft 节点
+	// 创建并启动 numServers 个 Raft 节点
 	rafts := make([]*raft.Raft, numServers)
 	for i := 0; i < numServers; i++ {
 		// 为每个节点创建一个 Raft 实例

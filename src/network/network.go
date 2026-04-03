@@ -1,5 +1,6 @@
 package network
 
+//RPC网络适配器，模拟labrpc的功能，支持多机部署环境
 import (
 	"encoding/gob"
 	"fmt"
